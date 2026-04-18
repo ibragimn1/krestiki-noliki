@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5"
+  />
+  <meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#0f1419" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Крестики" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>Пять в ряд 8×8</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --accent: #3d8bfd;
+      --x-color: #ff6b6b;
+      --o-color: #69db7c;
+      --text: #e8ecf1;
+      --muted: #8b9cb3;
+      --cell: #243044;
+      --cell-hover: #2d3d56;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      touch-action: manipulation;
+    }
+
+    body {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: calc(10px + var(--safe-top)) calc(10px + var(--safe-right))
+        calc(10px + var(--safe-bottom)) calc(10px + var(--safe-left));
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(ellipse 120% 80% at 50% -20%, #1e3a5f 0%, var(--bg) 55%);
+      color: var(--text);
+    }
+
+    h1 {
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      margin: 0 0 0.15rem;
+      font-size: clamp(1.1rem, 4vw, 1.5rem);
+      text-align: center;
+    }
+
+    .subtitle {
+      margin: 0 0 0.5rem;
+      font-size: clamp(0.75rem, 2.8vw, 0.9rem);
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .status {
+      min-height: 1.5rem;
+      font-size: clamp(0.9rem, 3.2vw, 1.05rem);
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+
+    .status strong {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .board-wrap {
+      flex: 0 0 auto;
+      width: min(96vw, calc(100dvh - 14rem), 420px);
+      max-width: 100%;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      width: 100%;
+      aspect-ratio: 1;
+      gap: clamp(2px, 0.6vw, 4px);
+      padding: clamp(4px, 1.2vw, 8px);
+      background: var(--panel);
+      border-radius: 0.65rem;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    .cell {
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      border: none;
+      border-radius: clamp(2px, 0.8vw, 6px);
+      background: var(--cell);
+      color: var(--text);
+      font-size: clamp(0.55rem, 2.8vw, 0.95rem);
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.12s, transform 0.08s;
+      touch-action: manipulation;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    @media (hover: hover) {
+      .cell:hover:not(:disabled) {
+        background: var(--cell-hover);
+      }
+    }
+
+    .cell:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .cell:disabled {
+      cursor: default;
+    }
+
+    .cell.x {
+      color: var(--x-color);
+    }
+
+    .cell.o {
+      color: var(--o-color);
+    }
+
+    .cell.win {
+      background: rgba(61, 139, 253, 0.28);
+      box-shadow: inset 0 0 0 1.5px var(--accent);
+    }
+
+    .difficulty {
+      margin-top: 0.6rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .difficulty-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .difficulty-btns {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+
+    .diff-btn {
+      min-height: 36px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid var(--cell-hover);
+      border-radius: 0.4rem;
+      background: var(--cell);
+      color: var(--text);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .diff-btn[aria-pressed="true"] {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .actions {
+      margin-top: 0.55rem;
+    }
+
+    .actions button {
+      min-height: 44px;
+      min-width: 150px;
+      padding: 0.55rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 0.5rem;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      transition: filter 0.15s, transform 0.1s;
+      touch-action: manipulation;
+    }
+
+    @media (hover: hover) {
+      .actions button:hover {
+        filter: brightness(1.08);
+      }
+    }
+
+    .actions button:active {
+      transform: scale(0.98);
+    }
+
+    .legend {
+      margin-top: 0.55rem;
+      font-size: clamp(0.72rem, 2.4vw, 0.82rem);
+      color: var(--muted);
+      text-align: center;
+      max-width: 24rem;
+      line-height: 1.35;
+    }
+  </style>
+</head>
+<body>
+  <h1>Пять в ряд</h1>
+  <p class="subtitle">Поле 8×8 · победа: пять подряд (линия, столбец, диагональ)</p>
+  <p class="status" id="status">Ваш ход (<strong>X</strong>)</p>
+  <div class="board-wrap">
+    <div class="board" id="board" role="grid" aria-label="Поле 8 на 8, пять в ряд" aria-rowcount="8" aria-colcount="8"></div>
+  </div>
+  <div class="difficulty" role="group" aria-label="Сложность игры с компьютером">
+    <span class="difficulty-label" id="diff-label">Сложность</span>
+    <div class="difficulty-btns" id="diff-btns">
+      <button type="button" class="diff-btn" data-diff="easy" aria-pressed="false">Лёгкий</button>
+      <button type="button" class="diff-btn" data-diff="medium" aria-pressed="false">Средний</button>
+      <button type="button" class="diff-btn" data-diff="hard" aria-pressed="false">Сложный</button>
+    </div>
+  </div>
+  <div class="actions">
+    <button type="button" id="reset">Новая игра</button>
+  </div>
+  <p class="legend">
+    Вы — крестики (X), компьютер — нолики (O). Всегда добивает пятёрку и блокирует одиночную угрозу
+    пятой клетки. Лёгкий: узкий радиус ходов, много случайности и «размытая» оценка. Средний:
+    шире внимание, меньше шума, умнее блок при двух угрозах. Сложный: максимальный радиус, ход
+    вперёд против вашей лучшей ответной угрозы, лучший выбор при вилке. На телефоне: «Установить
+    приложение» / «На экран Домой».
+  </p>
+
+  <script>
+    const BOARD = 8;
+    const WIN_LEN = 5;
+    const N = BOARD * BOARD;
+
+    const WIN_LINES = (() => {
+      const lines = [];
+      const add = (r0, c0, dr, dc) => {
+        const seg = [];
+        for (let k = 0; k < WIN_LEN; k++) {
+          seg.push((r0 + dr * k) * BOARD + (c0 + dc * k));
+        }
+        lines.push(seg);
+      };
+      for (let r = 0; r < BOARD; r++) {
+        for (let c = 0; c <= BOARD - WIN_LEN; c++) add(r, c, 0, 1);
+      }
+      for (let c = 0; c < BOARD; c++) {
+        for (let r = 0; r <= BOARD - WIN_LEN; r++) add(r, c, 1, 0);
+      }
+      for (let r = 0; r <= BOARD - WIN_LEN; r++) {
+        for (let c = 0; c <= BOARD - WIN_LEN; c++) add(r, c, 1, 1);
+      }
+      for (let r = 0; r <= BOARD - WIN_LEN; r++) {
+        for (let c = WIN_LEN - 1; c < BOARD; c++) add(r, c, 1, -1);
+      }
+      return lines;
+    })();
+
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
+
+    const HUMAN = "X";
+    const AI = "O";
+
+    let cells = Array(N).fill("");
+    let current = HUMAN;
+    let gameOver = false;
+    let winLine = null;
+    let aiThinking = false;
+    let aiTimer = null;
+
+    const DIFF_STORAGE = "ttt-difficulty";
+    /** Чем выше уровень, тем сильнее ИИ: радиус клеток, шум, «размытие» оценки, вилка, просмотр */
+    const DIFF_CONFIG = {
+      easy: {
+        noise: 0.52,
+        nearRadius: 1,
+        scoreSlack: 12000,
+        forkSmartChance: 0,
+        lookahead: false,
+        replyWeight: 0,
+      },
+      medium: {
+        noise: 0.2,
+        nearRadius: 2,
+        scoreSlack: 1500,
+        forkSmartChance: 0.72,
+        lookahead: false,
+        replyWeight: 0,
+      },
+      hard: {
+        noise: 0,
+        nearRadius: 3,
+        scoreSlack: 0,
+        forkSmartChance: 1,
+        lookahead: true,
+        replyWeight: 0.62,
+      },
+    };
+    let difficulty = "medium";
+
+    function diffCfg() {
+      return DIFF_CONFIG[difficulty] ?? DIFF_CONFIG.medium;
+    }
+
+    function loadDifficulty() {
+      try {
+        const v = localStorage.getItem(DIFF_STORAGE);
+        if (v === "easy" || v === "medium" || v === "hard") difficulty = v;
+      } catch (_) {}
+      syncDifficultyUi();
+    }
+
+    function syncDifficultyUi() {
+      document.querySelectorAll(".diff-btn").forEach((btn) => {
+        btn.setAttribute("aria-pressed", btn.dataset.diff === difficulty ? "true" : "false");
+      });
+    }
+
+    document.getElementById("diff-btns").addEventListener("click", (e) => {
+      const btn = e.target.closest(".diff-btn");
+      if (!btn) return;
+      difficulty = btn.dataset.diff;
+      try {
+        localStorage.setItem(DIFF_STORAGE, difficulty);
+      } catch (_) {}
+      syncDifficultyUi();
+    });
+
+    function winnerOnBoard(board) {
+      for (const seg of WIN_LINES) {
+        const a = board[seg[0]];
+        if (!a) continue;
+        if (seg.every((i) => board[i] === a)) return { winner: a, line: seg };
+      }
+      return null;
+    }
+
+    function checkWinner() {
+      return winnerOnBoard(cells);
+    }
+
+    function emptyCells() {
+      const idx = [];
+      for (let i = 0; i < N; i++) if (!cells[i]) idx.push(i);
+      return idx;
+    }
+
+    function finishingMove(board, symbol) {
+      for (let i = 0; i < N; i++) {
+        if (board[i]) continue;
+        board[i] = symbol;
+        const w = winnerOnBoard(board);
+        board[i] = "";
+        if (w && w.winner === symbol) return i;
+      }
+      return -1;
+    }
+
+    /** Все клетки, куда соперник `opp` смог бы выиграть одним ходом */
+    function opponentWinningCells(board, opp) {
+      const out = [];
+      for (let i = 0; i < N; i++) {
+        if (board[i]) continue;
+        board[i] = opp;
+        const w = winnerOnBoard(board);
+        board[i] = "";
+        if (w && w.winner === opp) out.push(i);
+      }
+      return out;
+    }
+
+    function candidateMoves(radius) {
+      const empty = emptyCells();
+      if (empty.length === N) return [27, 28, 35, 36].filter((i) => !cells[i]);
+      const near = new Set();
+      for (let i = 0; i < N; i++) {
+        if (!cells[i]) continue;
+        const r = (i / BOARD) | 0;
+        const c = i % BOARD;
+        for (let dr = -radius; dr <= radius; dr++) {
+          for (let dc = -radius; dc <= radius; dc++) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr < 0 || nr >= BOARD || nc < 0 || nc >= BOARD) continue;
+            const j = nr * BOARD + nc;
+            if (!cells[j]) near.add(j);
+          }
+        }
+      }
+      const arr = empty.filter((e) => near.has(e));
+      return arr.length ? arr : empty;
+    }
+
+    function maxHumanThreatOnBoard(board) {
+      for (let j = 0; j < N; j++) {
+        if (board[j]) continue;
+        const c = board.slice();
+        c[j] = HUMAN;
+        if (winnerOnBoard(c)?.winner === HUMAN) return 2e8;
+      }
+      let m = 0;
+      for (let j = 0; j < N; j++) {
+        if (board[j]) continue;
+        m = Math.max(m, strengthAfterMove(board, j, HUMAN));
+      }
+      return m;
+    }
+
+    function bestBlockAmongThreats(threats) {
+      let bestT = threats[0];
+      let bestVal = Infinity;
+      for (const t of threats) {
+        const b = cells.slice();
+        b[t] = AI;
+        const reply = maxHumanThreatOnBoard(b);
+        if (reply < bestVal) {
+          bestVal = reply;
+          bestT = t;
+        }
+      }
+      return bestT;
+    }
+
+    function segmentScore(board, seg, sym) {
+      const opp = sym === AI ? HUMAN : AI;
+      let my = 0;
+      let op = 0;
+      for (const j of seg) {
+        if (board[j] === sym) my++;
+        else if (board[j] === opp) op++;
+      }
+      if (op > 0) return 0;
+      if (my === 5) return 1e6;
+      if (my === 4) return 1e4;
+      if (my === 3) return 120;
+      if (my === 2) return 12;
+      return my;
+    }
+
+    function strengthAfterMove(board, move, sym) {
+      const b = board.slice();
+      b[move] = sym;
+      let score = 0;
+      for (const seg of WIN_LINES) {
+        if (!seg.includes(move)) continue;
+        score += segmentScore(b, seg, sym);
+      }
+      return score;
+    }
+
+    function weakenedPickFromScores(scored, slack) {
+      if (!scored.length) return -1;
+      scored.sort((a, b) => b.s - a.s);
+      const best = scored[0].s;
+      const pool = scored.filter((x) => x.s >= best - slack);
+      return pool[(Math.random() * pool.length) | 0].i;
+    }
+
+    function bestHeuristicMove() {
+      const cfg = diffCfg();
+      const cand = candidateMoves(cfg.nearRadius);
+      const scored = [];
+      for (const i of cand) {
+        if (cells[i]) continue;
+        const atk = strengthAfterMove(cells, i, AI);
+        if (cfg.lookahead) {
+          const b = cells.slice();
+          b[i] = AI;
+          const reply = maxHumanThreatOnBoard(b);
+          const ev = atk - cfg.replyWeight * reply;
+          scored.push({ i, s: ev });
+        } else {
+          scored.push({ i, s: atk });
+        }
+      }
+      if (!scored.length) return -1;
+      if (cfg.lookahead) {
+        scored.sort((a, b) => b.s - a.s);
+        const best = scored[0].s;
+        const ties = scored.filter((x) => x.s === best).map((x) => x.i);
+        return ties[(Math.random() * ties.length) | 0];
+      }
+      return weakenedPickFromScores(scored, cfg.scoreSlack);
+    }
+
+    function chooseAiMove() {
+      const empty = emptyCells();
+      if (!empty.length) return -1;
+
+      const cfg = diffCfg();
+      const scratch = cells.slice();
+      const winNow = finishingMove(scratch, AI);
+      if (winNow >= 0) return winNow;
+
+      const threats = opponentWinningCells(scratch, HUMAN);
+      if (threats.length === 1) return threats[0];
+      if (threats.length > 1) {
+        if (cfg.forkSmartChance > 0 && Math.random() < cfg.forkSmartChance) {
+          return bestBlockAmongThreats(threats);
+        }
+        return threats[(Math.random() * threats.length) | 0];
+      }
+
+      if (cfg.noise > 0 && Math.random() < cfg.noise) {
+        return empty[(Math.random() * empty.length) | 0];
+      }
+
+      const h = bestHeuristicMove();
+      if (h >= 0) return h;
+      return empty[(Math.random() * empty.length) | 0];
+    }
+
+    function applyStateAfterMove() {
+      const w = checkWinner();
+      if (w) {
+        gameOver = true;
+        winLine = w.line;
+      } else if (!cells.some((x) => !x)) {
+        gameOver = true;
+        winLine = null;
+      }
+    }
+
+    function render() {
+      boardEl.innerHTML = "";
+      for (let i = 0; i < N; i++) {
+        const value = cells[i];
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "cell";
+        btn.dataset.index = String(i);
+        btn.setAttribute("role", "gridcell");
+        btn.setAttribute("aria-rowindex", String(((i / BOARD) | 0) + 1));
+        btn.setAttribute("aria-colindex", String((i % BOARD) + 1));
+        if (value === "X") btn.classList.add("x");
+        if (value === "O") btn.classList.add("o");
+        if (value) btn.textContent = value;
+        if (winLine && winLine.includes(i)) btn.classList.add("win");
+        const humanBlocked = current === AI || aiThinking;
+        btn.disabled = Boolean(value) || gameOver || humanBlocked;
+        const play = () => onHumanMove(i);
+        btn.addEventListener("click", play);
+        btn.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            play();
+          }
+        });
+        boardEl.appendChild(btn);
+      }
+
+      if (gameOver) {
+        const w = checkWinner();
+        if (w) {
+          if (w.winner === HUMAN) {
+            statusEl.innerHTML = "Победили <strong>вы</strong>";
+          } else {
+            statusEl.innerHTML = "Победил <strong>компьютер</strong>";
+          }
+        } else {
+          statusEl.textContent = "Ничья";
+        }
+      } else if (aiThinking) {
+        statusEl.innerHTML = "Ход компьютера…";
+      } else {
+        statusEl.innerHTML = `Ваш ход (<strong>${HUMAN}</strong>)`;
+      }
+    }
+
+    function onHumanMove(index) {
+      if (gameOver || aiThinking || current !== HUMAN || cells[index]) return;
+      cells[index] = HUMAN;
+      applyStateAfterMove();
+      render();
+      if (gameOver) return;
+
+      current = AI;
+      aiThinking = true;
+      render();
+
+      aiTimer = setTimeout(() => {
+        aiTimer = null;
+        aiThinking = false;
+        const pick = chooseAiMove();
+        if (pick >= 0 && !cells[pick]) cells[pick] = AI;
+        applyStateAfterMove();
+        if (!gameOver) current = HUMAN;
+        render();
+      }, 200);
+    }
+
+    function reset() {
+      if (aiTimer) {
+        clearTimeout(aiTimer);
+        aiTimer = null;
+      }
+      cells = Array(N).fill("");
+      current = HUMAN;
+      gameOver = false;
+      winLine = null;
+      aiThinking = false;
+      render();
+    }
+
+    document.getElementById("reset").addEventListener("click", reset);
+    loadDifficulty();
+    render();
+
+    if ("serviceWorker" in navigator) {
+      const secure =
+        location.protocol === "https:" ||
+        location.hostname === "localhost" ||
+        location.hostname === "127.0.0.1";
+      if (secure) {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      }
+    }
+  </script>
+</body>
+</html>
