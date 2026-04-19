@@ -267,6 +267,76 @@
       max-width: 24rem;
       line-height: 1.35;
     }
+
+    .result-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7, 10, 16, 0.72);
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+    }
+
+    .result-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .result-text {
+      margin: 0;
+      padding: 0.35em 0.6em;
+      border-radius: 0.35em;
+      font-size: clamp(2rem, 11vw, 5rem);
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: center;
+      text-shadow: 0 0 18px rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .result-text.victory {
+      color: #3d8bfd;
+    }
+
+    .result-text.defeat {
+      color: #ff922b;
+    }
+
+    .result-text.draw {
+      color: #ffd43b;
+    }
+
+    .result-restart {
+      min-height: 48px;
+      min-width: 170px;
+      padding: 0.6rem 1.4rem;
+      border: none;
+      border-radius: 0.55rem;
+      background: #f8f9fa;
+      color: #1f2937;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: filter 0.15s, transform 0.1s;
+    }
+
+    @media (hover: hover) {
+      .result-restart:hover {
+        filter: brightness(0.95);
+      }
+    }
+
+    .result-restart:active {
+      transform: scale(0.98);
+    }
   </style>
 </head>
 <body>
@@ -294,6 +364,10 @@
     вперёд против вашей лучшей ответной угрозы, лучший выбор при вилке. На телефоне: «Установить
     приложение» / «На экран Домой».
   </p>
+  <div class="result-overlay" id="resultOverlay" aria-live="assertive" aria-atomic="true">
+    <p class="result-text" id="resultText"></p>
+    <button type="button" class="result-restart" id="resultRestart">РЕСТАРТ</button>
+  </div>
 
   <script>
     const BOARD = 8;
@@ -326,6 +400,9 @@
 
     const boardEl = document.getElementById("board");
     const statusEl = document.getElementById("status");
+    const resultOverlayEl = document.getElementById("resultOverlay");
+    const resultTextEl = document.getElementById("resultText");
+    const resultRestartEl = document.getElementById("resultRestart");
 
     const HUMAN = "X";
     const AI = "O";
@@ -627,16 +704,25 @@
         const w = checkWinner();
         if (w) {
           if (w.winner === HUMAN) {
-            statusEl.innerHTML = "Победили <strong>вы</strong>";
+            statusEl.innerHTML = "<strong>Игра завершена</strong>";
+            resultTextEl.textContent = "ПОБЕДА";
+            resultTextEl.className = "result-text victory";
           } else {
-            statusEl.innerHTML = "Победил <strong>компьютер</strong>";
+            statusEl.innerHTML = "<strong>Игра завершена</strong>";
+            resultTextEl.textContent = "ПОРАЖЕНИЕ";
+            resultTextEl.className = "result-text defeat";
           }
         } else {
-          statusEl.textContent = "Ничья";
+          statusEl.innerHTML = "<strong>Игра завершена</strong>";
+          resultTextEl.textContent = "НИЧЬЯ";
+          resultTextEl.className = "result-text draw";
         }
+        resultOverlayEl.classList.add("show");
       } else if (aiThinking) {
+        resultOverlayEl.classList.remove("show");
         statusEl.innerHTML = "Ход компьютера…";
       } else {
+        resultOverlayEl.classList.remove("show");
         statusEl.innerHTML = `Ваш ход (<strong>${HUMAN}</strong>)`;
       }
     }
@@ -677,6 +763,7 @@
     }
 
     document.getElementById("reset").addEventListener("click", reset);
+    resultRestartEl.addEventListener("click", reset);
     loadDifficulty();
     render();
 
