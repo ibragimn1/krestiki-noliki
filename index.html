@@ -469,7 +469,7 @@
   <div class="actions">
     <button type="button" id="reset">Новая игра</button>
   </div>
-  <p class="legend">
+  <p class="legend" id="legendText">
     Вы — крестики (X), компьютер — нолики (O). Всегда добивает пятёрку и блокирует одиночную угрозу
     пятой клетки. Лёгкий: узкий радиус ходов, много случайности и «размытая» оценка. Средний:
     шире внимание, меньше шума, умнее блок при двух угрозах. Сложный: максимальный радиус, ход
@@ -613,7 +613,7 @@
     const friendJoinInputEl = document.getElementById("friendJoinInput");
     const friendStatusEl = document.getElementById("friendStatus");
 
-    const LEGEND_CPU = legendTextEl.textContent.trim();
+    const LEGEND_CPU = legendTextEl ? legendTextEl.textContent.trim() : "";
 
     const LEGEND_FRIEND =
       "Один игрок нажимает «Создать игру» и отправляет второму код или ссылку. Второй вводит код или открывает ссылку. Крестики и нолики назначаются случайно; первый ход всегда у крестиков (X). «Новая игра» начинает партию заново с теми же фигурами. Если звук победы не сработал после хода соперника, это ограничение браузера.";
@@ -627,7 +627,7 @@
       document.getElementById("modeFriend").setAttribute("aria-pressed", isCpuMode() ? "false" : "true");
       difficultyWrapEl.classList.toggle("hidden", !isCpuMode());
       friendPanelEl.classList.toggle("hidden", isCpuMode());
-      legendTextEl.textContent = isCpuMode() ? LEGEND_CPU : LEGEND_FRIEND;
+      if (legendTextEl) legendTextEl.textContent = isCpuMode() ? LEGEND_CPU : LEGEND_FRIEND;
     }
 
     function teardownPeer() {
@@ -816,7 +816,6 @@
     }
 
     document.getElementById("modeCpu").addEventListener("click", () => {
-      if (gameMode === "cpu") return;
       gameMode = "cpu";
       mySymbol = HUMAN;
       peerSymbol = AI;
