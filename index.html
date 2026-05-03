@@ -369,6 +369,12 @@
     <button type="button" class="result-restart" id="resultRestart">РЕСТАРТ</button>
   </div>
 
+  <!-- Положите в эту же папку файл victory.mp3 или victory.wav (рядом с index.html). -->
+  <audio id="victorySfx" preload="auto">
+    <source src="victory.mp3" type="audio/mpeg" />
+    <source src="victory.wav" type="audio/wav" />
+  </audio>
+
   <script>
     const BOARD = 12;
     const MID = (BOARD - 2) >> 1;
@@ -420,7 +426,6 @@
     let winLine = null;
     let aiThinking = false;
     let aiTimer = null;
-    let victoryAudioCtx = null;
 
     const DIFF_STORAGE = "ttt-difficulty";
     /** Чем выше уровень, тем сильнее ИИ: радиус клеток, шум, «размытие» оценки, вилка, просмотр */
@@ -493,30 +498,14 @@
       return winnerOnBoard(cells);
     }
 
-    /** Звук победы игрока; вызывать из обработчика клика (политика автовоспроизведения). */
+    /** Звук победы: файл victory.mp3 или victory.wav в той же папке, что index.html. Вызывать из клика по клетке. */
     function playHumanVictorySound() {
+      const el = document.getElementById("victorySfx");
+      if (!el) return;
       try {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        if (!victoryAudioCtx) victoryAudioCtx = new AC();
-        const ctx = victoryAudioCtx;
-        if (ctx.state === "suspended") void ctx.resume();
-        const t0 = ctx.currentTime;
-        const notes = [523.25, 659.25, 783.99, 1046.5];
-        notes.forEach((freq, i) => {
-          const t = t0 + i * 0.1;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = "triangle";
-          osc.frequency.setValueAtTime(freq, t);
-          gain.gain.setValueAtTime(0.0001, t);
-          gain.gain.exponentialRampToValueAtTime(0.13, t + 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(t);
-          osc.stop(t + 0.36);
-        });
+        el.pause();
+        el.currentTime = 0;
+        void el.play().catch(() => {});
       } catch (_) {}
     }
 
