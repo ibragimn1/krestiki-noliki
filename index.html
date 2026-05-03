@@ -268,6 +268,101 @@
       line-height: 1.35;
     }
 
+    .mode-row {
+      margin-top: 0.45rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+
+    .mode-btn {
+      min-height: 40px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid var(--cell-hover);
+      border-radius: 0.45rem;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .mode-btn[aria-pressed="true"] {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .friend-panel {
+      margin-top: 0.5rem;
+      padding: 0.65rem;
+      border-radius: 0.5rem;
+      background: var(--panel);
+      max-width: 22rem;
+      width: 100%;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .friend-panel.hidden {
+      display: none;
+    }
+
+    .difficulty.hidden {
+      display: none;
+    }
+
+    .friend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+      justify-content: center;
+      margin-top: 0.4rem;
+    }
+
+    .friend-panel input[type="text"] {
+      flex: 1;
+      min-width: 9rem;
+      padding: 0.45rem 0.55rem;
+      border-radius: 0.35rem;
+      border: 1px solid var(--cell-hover);
+      background: var(--cell);
+      color: var(--text);
+      font-size: 0.85rem;
+    }
+
+    .friend-panel .mini-btn {
+      min-height: 38px;
+      padding: 0.4rem 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border: 1px solid var(--cell-hover);
+      border-radius: 0.4rem;
+      background: var(--cell);
+      color: var(--text);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .friend-panel .mini-btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .host-id {
+      margin-top: 0.35rem;
+      font-family: ui-monospace, "Cascadia Mono", monospace;
+      font-size: 0.76rem;
+      word-break: break-all;
+      color: var(--accent);
+      text-align: center;
+    }
+
     .result-overlay {
       position: fixed;
       inset: 0;
@@ -342,11 +437,28 @@
 <body>
   <h1>Пять в ряд</h1>
   <p class="subtitle">Поле 12×12 · победа: пять подряд (линия, столбец, диагональ)</p>
+  <div class="mode-row" role="group" aria-label="Режим игры">
+    <button type="button" class="mode-btn" id="modeCpu" aria-pressed="true">Игра с компьютером</button>
+    <button type="button" class="mode-btn" id="modeFriend" aria-pressed="false">Игра с другом</button>
+  </div>
+  <div class="friend-panel hidden" id="friendPanel" aria-live="polite">
+    <div><strong>Сеть:</strong> нужен интернет. Лучше открыть страницу по HTTPS или через localhost.</div>
+    <div class="friend-row">
+      <button type="button" class="mini-btn primary" id="friendHostBtn">Создать игру</button>
+      <button type="button" class="mini-btn" id="friendCopyBtn" hidden>Скопировать ссылку</button>
+    </div>
+    <div class="host-id" id="hostIdDisplay" hidden></div>
+    <div class="friend-row">
+      <input type="text" id="friendJoinInput" placeholder="Код хоста (из ссылки)" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <button type="button" class="mini-btn primary" id="friendJoinBtn">Подключиться</button>
+    </div>
+    <div id="friendStatus" style="margin-top: 0.35rem; text-align: center"></div>
+  </div>
   <p class="status" id="status">Ваш ход (<strong>X</strong>)</p>
   <div class="board-wrap">
     <div class="board" id="board" role="grid" aria-label="Поле 12 на 12, пять в ряд" aria-rowcount="12" aria-colcount="12"></div>
   </div>
-  <div class="difficulty" role="group" aria-label="Сложность игры с компьютером">
+  <div class="difficulty" id="difficultyWrap" role="group" aria-label="Сложность игры с компьютером">
     <span class="difficulty-label" id="diff-label">Сложность</span>
     <div class="difficulty-btns" id="diff-btns">
       <button type="button" class="diff-btn" data-diff="easy" aria-pressed="false">Лёгкий</button>
@@ -375,6 +487,7 @@
     <source src="victory.wav" type="audio/wav" />
   </audio>
 
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
     const BOARD = 12;
     const MID = (BOARD - 2) >> 1;
@@ -419,6 +532,13 @@
 
     const HUMAN = "X";
     const AI = "O";
+
+    let gameMode = "cpu";
+    let mySymbol = HUMAN;
+    let peerSymbol = AI;
+    let peerObj = null;
+    let peerConn = null;
+    let rolesAssigned = false;
 
     let cells = Array(N).fill("");
     let current = HUMAN;
@@ -483,6 +603,267 @@
         localStorage.setItem(DIFF_STORAGE, difficulty);
       } catch (_) {}
       syncDifficultyUi();
+    });
+
+    const difficultyWrapEl = document.getElementById("difficultyWrap");
+    const friendPanelEl = document.getElementById("friendPanel");
+    const legendTextEl = document.getElementById("legendText");
+    const hostIdDisplayEl = document.getElementById("hostIdDisplay");
+    const friendCopyBtnEl = document.getElementById("friendCopyBtn");
+    const friendJoinInputEl = document.getElementById("friendJoinInput");
+    const friendStatusEl = document.getElementById("friendStatus");
+
+    const LEGEND_CPU = legendTextEl.textContent.trim();
+
+    const LEGEND_FRIEND =
+      "Один игрок нажимает «Создать игру» и отправляет второму код или ссылку. Второй вводит код или открывает ссылку. Крестики и нолики назначаются случайно; первый ход всегда у крестиков (X). «Новая игра» начинает партию заново с теми же фигурами. Если звук победы не сработал после хода соперника, это ограничение браузера.";
+
+    function isCpuMode() {
+      return gameMode === "cpu";
+    }
+
+    function syncModeUi() {
+      document.getElementById("modeCpu").setAttribute("aria-pressed", isCpuMode() ? "true" : "false");
+      document.getElementById("modeFriend").setAttribute("aria-pressed", isCpuMode() ? "false" : "true");
+      difficultyWrapEl.classList.toggle("hidden", !isCpuMode());
+      friendPanelEl.classList.toggle("hidden", isCpuMode());
+      legendTextEl.textContent = isCpuMode() ? LEGEND_CPU : LEGEND_FRIEND;
+    }
+
+    function teardownPeer() {
+      try {
+        if (peerConn) {
+          peerConn.close();
+          peerConn = null;
+        }
+      } catch (_) {}
+      try {
+        if (peerObj) {
+          peerObj.destroy();
+          peerObj = null;
+        }
+      } catch (_) {}
+      rolesAssigned = false;
+      friendCopyBtnEl.hidden = true;
+      hostIdDisplayEl.hidden = true;
+      friendStatusEl.textContent = "";
+    }
+
+    function setFriendStatus(msg) {
+      friendStatusEl.textContent = msg;
+    }
+
+    function resetBoardState() {
+      cells = Array(N).fill("");
+      gameOver = false;
+      winLine = null;
+      current = HUMAN;
+      aiThinking = false;
+    }
+
+    function sendPeer(msg) {
+      if (!peerConn || !peerConn.open) return;
+      try {
+        peerConn.send(JSON.stringify(msg));
+      } catch (_) {}
+    }
+
+    function hostAssignAndSend(conn) {
+      const hostIsX = Math.random() < 0.5;
+      mySymbol = hostIsX ? HUMAN : AI;
+      peerSymbol = hostIsX ? AI : HUMAN;
+      resetBoardState();
+      current = HUMAN;
+      rolesAssigned = true;
+      sendPeer({ type: "roles", guestSymbol: peerSymbol });
+      setFriendStatus("Соперник подключён. Вы играете за " + mySymbol + ".");
+      render();
+    }
+
+    function handleFriendMessage(raw) {
+      let msg;
+      try {
+        msg = typeof raw === "string" ? JSON.parse(raw) : raw;
+      } catch (_) {
+        return;
+      }
+      if (msg.type === "roles") {
+        mySymbol = msg.guestSymbol;
+        peerSymbol = mySymbol === HUMAN ? AI : HUMAN;
+        resetBoardState();
+        current = HUMAN;
+        rolesAssigned = true;
+        setFriendStatus("Вы играете за " + mySymbol + ". Первыми ходят крестики.");
+        render();
+        return;
+      }
+      if (msg.type === "reset") {
+        resetBoardState();
+        render();
+        return;
+      }
+      if (msg.type === "move") {
+        if (!rolesAssigned || gameOver) return;
+        const i = msg.index;
+        const sym = msg.symbol;
+        if (i < 0 || i >= N || cells[i]) return;
+        if (sym !== peerSymbol || sym !== current) return;
+        cells[i] = sym;
+        applyStateAfterMove();
+        if (!gameOver) current = mySymbol;
+        render();
+      }
+    }
+
+    function onIncomingConnection(conn) {
+      if (peerConn && peerConn !== conn) {
+        try {
+          peerConn.close();
+        } catch (_) {}
+      }
+      peerConn = conn;
+      conn.on("data", handleFriendMessage);
+      conn.on("close", () => {
+        rolesAssigned = false;
+        setFriendStatus("Соперник отключился.");
+        render();
+      });
+      const runHost = () => hostAssignAndSend(conn);
+      if (conn.open) runHost();
+      else conn.on("open", runHost);
+    }
+
+    function friendHostCreate() {
+      if (typeof Peer === "undefined") {
+        setFriendStatus("Не загрузилась сеть PeerJS. Проверьте интернет.");
+        return;
+      }
+      teardownPeer();
+      resetBoardState();
+      setFriendStatus("Создание комнаты…");
+      rolesAssigned = false;
+      try {
+        peerObj = new Peer();
+      } catch (err) {
+        setFriendStatus("Ошибка Peer: " + (err && err.message ? err.message : String(err)));
+        return;
+      }
+      peerObj.on("open", (id) => {
+        hostIdDisplayEl.hidden = false;
+        hostIdDisplayEl.textContent = "Ваш код: " + id;
+        friendCopyBtnEl.hidden = false;
+        const shareUrl = location.origin + location.pathname + "?join=" + encodeURIComponent(id);
+        friendCopyBtnEl.dataset.shareUrl = shareUrl;
+        setFriendStatus("Отправьте код или нажмите «Скопировать ссылку».");
+        render();
+      });
+      peerObj.on("connection", onIncomingConnection);
+      peerObj.on("error", (err) => {
+        setFriendStatus("Ошибка: " + (err.type || err.message || String(err)));
+      });
+    }
+
+    function extractJoinId(raw) {
+      const s = String(raw || "").trim();
+      const m = s.match(/(?:\?|&)join=([^&]+)/i);
+      if (m) return decodeURIComponent(m[1]).trim();
+      return s.trim();
+    }
+
+    function friendGuestConnect(hostIdRaw) {
+      if (typeof Peer === "undefined") {
+        setFriendStatus("Не загрузилась сеть PeerJS.");
+        return;
+      }
+      const hostId = extractJoinId(hostIdRaw);
+      if (!hostId) {
+        setFriendStatus("Введите код хоста.");
+        return;
+      }
+      teardownPeer();
+      resetBoardState();
+      setFriendStatus("Подключение…");
+      rolesAssigned = false;
+      try {
+        peerObj = new Peer();
+      } catch (err) {
+        setFriendStatus("Ошибка Peer: " + (err && err.message ? err.message : String(err)));
+        return;
+      }
+      peerObj.on("error", (err) => {
+        setFriendStatus("Ошибка: " + (err.type || err.message || String(err)));
+      });
+      peerObj.on("open", () => {
+        let conn;
+        try {
+          conn = peerObj.connect(hostId, { reliable: true });
+        } catch (err) {
+          setFriendStatus("Не удалось подключиться.");
+          return;
+        }
+        peerConn = conn;
+        conn.on("data", handleFriendMessage);
+        conn.on("close", () => {
+          rolesAssigned = false;
+          setFriendStatus("Соединение закрыто.");
+          render();
+        });
+        conn.on("open", () => {
+          setFriendStatus("Ждём назначения ролей…");
+          render();
+        });
+      });
+    }
+
+    document.getElementById("modeCpu").addEventListener("click", () => {
+      if (gameMode === "cpu") return;
+      gameMode = "cpu";
+      mySymbol = HUMAN;
+      peerSymbol = AI;
+      teardownPeer();
+      if (aiTimer) {
+        clearTimeout(aiTimer);
+        aiTimer = null;
+      }
+      resetBoardState();
+      syncModeUi();
+      render();
+    });
+
+    document.getElementById("modeFriend").addEventListener("click", () => {
+      if (gameMode === "friend") return;
+      gameMode = "friend";
+      if (aiTimer) {
+        clearTimeout(aiTimer);
+        aiTimer = null;
+      }
+      teardownPeer();
+      resetBoardState();
+      mySymbol = HUMAN;
+      peerSymbol = AI;
+      rolesAssigned = false;
+      syncModeUi();
+      render();
+    });
+
+    document.getElementById("friendHostBtn").addEventListener("click", () => friendHostCreate());
+    document.getElementById("friendJoinBtn").addEventListener("click", () =>
+      friendGuestConnect(friendJoinInputEl.value),
+    );
+    friendCopyBtnEl.addEventListener("click", async () => {
+      const url = friendCopyBtnEl.dataset.shareUrl || "";
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        setFriendStatus("Ссылка скопирована.");
+      } catch (_) {
+        try {
+          friendJoinInputEl.value = url;
+          setFriendStatus("Ссылка вставлена в поле ниже — скопируйте вручную.");
+        } catch (__) {
+          setFriendStatus(url);
+        }
+      }
     });
 
     function winnerOnBoard(board) {
@@ -711,9 +1092,12 @@
           btn.appendChild(mark);
         }
         if (winLine && winLine.includes(i)) btn.classList.add("win");
-        const humanBlocked = current === AI || aiThinking;
-        btn.disabled = Boolean(value) || gameOver || humanBlocked;
-        const play = () => onHumanMove(i);
+        const cpuBlocked = isCpuMode() && (current !== HUMAN || aiThinking);
+        const friendBlocked =
+          !isCpuMode() &&
+          (!rolesAssigned || !peerConn || !peerConn.open || current !== mySymbol);
+        btn.disabled = Boolean(value) || gameOver || cpuBlocked || friendBlocked;
+        const play = () => onCellClick(i);
         btn.addEventListener("click", play);
         btn.addEventListener("keydown", (e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -727,7 +1111,7 @@
       if (gameOver) {
         const w = checkWinner();
         if (w) {
-          if (w.winner === HUMAN) {
+          if (w.winner === mySymbol) {
             statusEl.innerHTML = "<strong>Игра завершена</strong>";
             resultTextEl.textContent = "ПОБЕДА";
             resultTextEl.className = "result-text victory";
@@ -742,6 +1126,17 @@
           resultTextEl.className = "result-text draw";
         }
         resultOverlayEl.classList.add("show");
+      } else if (!isCpuMode()) {
+        resultOverlayEl.classList.remove("show");
+        if (!peerConn || !peerConn.open) {
+          statusEl.innerHTML = "<strong>Нет соединения — создайте игру или подключитесь</strong>";
+        } else if (!rolesAssigned) {
+          statusEl.innerHTML = "<strong>Ожидание соперника или ролей…</strong>";
+        } else if (current !== mySymbol) {
+          statusEl.innerHTML = `Ход соперника (<strong>${peerSymbol}</strong>)`;
+        } else {
+          statusEl.innerHTML = `Ваш ход (<strong>${mySymbol}</strong>)`;
+        }
       } else if (aiThinking) {
         resultOverlayEl.classList.remove("show");
         statusEl.innerHTML = "Ход компьютера…";
@@ -751,7 +1146,25 @@
       }
     }
 
-    function onHumanMove(index) {
+    function onCellClick(index) {
+      if (isCpuMode()) onCpuMove(index);
+      else onFriendMove(index);
+    }
+
+    function onFriendMove(index) {
+      if (!rolesAssigned || !peerConn || !peerConn.open) return;
+      if (gameOver || current !== mySymbol || cells[index]) return;
+      cells[index] = mySymbol;
+      applyStateAfterMove();
+      if (gameOver && checkWinner()?.winner === mySymbol) playHumanVictorySound();
+      sendPeer({ type: "move", index, symbol: mySymbol });
+      render();
+      if (gameOver) return;
+      current = peerSymbol;
+      render();
+    }
+
+    function onCpuMove(index) {
       if (gameOver || aiThinking || current !== HUMAN || cells[index]) return;
       cells[index] = HUMAN;
       applyStateAfterMove();
@@ -779,17 +1192,25 @@
         clearTimeout(aiTimer);
         aiTimer = null;
       }
-      cells = Array(N).fill("");
-      current = HUMAN;
-      gameOver = false;
-      winLine = null;
-      aiThinking = false;
+      resetBoardState();
+      if (!isCpuMode() && peerConn && peerConn.open && rolesAssigned) {
+        sendPeer({ type: "reset" });
+      }
       render();
     }
 
     document.getElementById("reset").addEventListener("click", reset);
     resultRestartEl.addEventListener("click", reset);
     loadDifficulty();
+
+    const urlJoin = new URLSearchParams(location.search).get("join");
+    if (urlJoin) gameMode = "friend";
+    syncModeUi();
+    if (urlJoin) {
+      if (typeof Peer !== "undefined") friendGuestConnect(urlJoin);
+      else setFriendStatus("Нет скрипта PeerJS — проверьте интернет и обновите страницу.");
+    }
+
     render();
 
     if ("serviceWorker" in navigator) {
