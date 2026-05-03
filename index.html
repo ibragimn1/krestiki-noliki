@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Крестики" />
   <meta name="format-detection" content="telephone=no" />
-  <title>Пять в ряд 8×8</title>
+  <title>Пять в ряд 12×12</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon-192.png" />
@@ -90,18 +90,18 @@
 
     .board-wrap {
       flex: 0 0 auto;
-      width: min(96vw, calc(100dvh - 14rem), 420px);
+      width: min(98vw, calc(100dvh - 10rem), 680px);
       max-width: 100%;
     }
 
     .board {
       display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      grid-template-rows: repeat(8, 1fr);
+      grid-template-columns: repeat(12, 1fr);
+      grid-template-rows: repeat(12, 1fr);
       width: 100%;
       aspect-ratio: 1;
-      gap: clamp(2px, 0.6vw, 4px);
-      padding: clamp(4px, 1.2vw, 8px);
+      gap: clamp(3px, 0.75vw, 5px);
+      padding: clamp(6px, 1.4vw, 10px);
       background: var(--panel);
       border-radius: 0.65rem;
       box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
@@ -116,7 +116,7 @@
       border-radius: clamp(2px, 0.8vw, 6px);
       background: var(--cell);
       color: var(--text);
-      font-size: clamp(0.55rem, 2.8vw, 0.95rem);
+      font-size: clamp(0.65rem, 2.2vw, 1rem);
       font-weight: 700;
       cursor: pointer;
       transition: background 0.12s, transform 0.08s;
@@ -341,10 +341,10 @@
 </head>
 <body>
   <h1>Пять в ряд</h1>
-  <p class="subtitle">Поле 8×8 · победа: пять подряд (линия, столбец, диагональ)</p>
+  <p class="subtitle">Поле 12×12 · победа: пять подряд (линия, столбец, диагональ)</p>
   <p class="status" id="status">Ваш ход (<strong>X</strong>)</p>
   <div class="board-wrap">
-    <div class="board" id="board" role="grid" aria-label="Поле 8 на 8, пять в ряд" aria-rowcount="8" aria-colcount="8"></div>
+    <div class="board" id="board" role="grid" aria-label="Поле 12 на 12, пять в ряд" aria-rowcount="12" aria-colcount="12"></div>
   </div>
   <div class="difficulty" role="group" aria-label="Сложность игры с компьютером">
     <span class="difficulty-label" id="diff-label">Сложность</span>
@@ -370,7 +370,14 @@
   </div>
 
   <script>
-    const BOARD = 8;
+    const BOARD = 12;
+    const MID = (BOARD - 2) >> 1;
+    const OPENING_2X2 = [
+      MID * BOARD + MID,
+      MID * BOARD + MID + 1,
+      (MID + 1) * BOARD + MID,
+      (MID + 1) * BOARD + MID + 1,
+    ];
     const WIN_LEN = 5;
     const N = BOARD * BOARD;
 
@@ -517,7 +524,7 @@
 
     function candidateMoves(radius) {
       const empty = emptyCells();
-      if (empty.length === N) return [27, 28, 35, 36].filter((i) => !cells[i]);
+      if (empty.length === N) return OPENING_2X2.filter((i) => !cells[i]);
       const near = new Set();
       for (let i = 0; i < N; i++) {
         if (!cells[i]) continue;
