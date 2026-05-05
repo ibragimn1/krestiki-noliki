@@ -442,7 +442,10 @@
     <button type="button" class="mode-btn" id="modeFriend" aria-pressed="false">Игра с другом</button>
   </div>
   <div class="friend-panel hidden" id="friendPanel" aria-live="polite">
-    <div><strong>Сеть:</strong> нужен интернет. Лучше открыть страницу по HTTPS или через localhost.</div>
+    <div>
+      <strong>Важно:</strong> сначала один игрок жмёт <strong>«Создать игру»</strong> и ждёт код; только потом второй вводит код или открывает ссылку.
+      Нужен интернет; страница не должна открываться как файл с диска (<code>file://</code>) — используйте localhost или сайт с HTTPS.
+    </div>
     <div class="friend-row">
       <button type="button" class="mini-btn primary" id="friendHostBtn">Создать игру</button>
       <button type="button" class="mini-btn" id="friendCopyBtn" hidden>Скопировать ссылку</button>
@@ -481,8 +484,9 @@
     <button type="button" class="result-restart" id="resultRestart">РЕСТАРТ</button>
   </div>
 
-  <!-- Положите в эту же папку файл victory.mp3 или victory.wav (рядом с index.html). -->
+  <!-- Веселая музыка победы. Используем текущий mp3-файл из папки проекта. -->
   <audio id="victorySfx" preload="auto">
+    <source src="fc31ca320b0edd3.mp3" type="audio/mpeg" />
     <source src="victory.mp3" type="audio/mpeg" />
     <source src="victory.wav" type="audio/wav" />
   </audio>
@@ -539,6 +543,14 @@
     let peerObj = null;
     let peerConn = null;
     let rolesAssigned = false;
+    let friendConnDeadlineTimer = null;
+
+    function clearFriendConnTimer() {
+      if (friendConnDeadlineTimer) {
+        clearTimeout(friendConnDeadlineTimer);
+        friendConnDeadlineTimer = null;
+      }
+    }
 
     let cells = Array(N).fill("");
     let current = HUMAN;
@@ -647,6 +659,7 @@
       friendCopyBtnEl.hidden = true;
       hostIdDisplayEl.hidden = true;
       friendStatusEl.textContent = "";
+      clearFriendConnTimer();
     }
 
     function setFriendStatus(msg) {
@@ -669,14 +682,21 @@
     }
 
     function hostAssignAndSend(conn) {
+      clearFriendConnTimer();
       const hostIsX = Math.random() < 0.5;
       mySymbol = hostIsX ? HUMAN : AI;
       peerSymbol = hostIsX ? AI : HUMAN;
       resetBoardState();
       current = HUMAN;
       rolesAssigned = true;
-      sendPeer({ type: "roles", guestSymbol: peerSymbol });
-      setFriendStatus("Соперник подключён. Вы играете за " + mySymbol + ".");
+      try {
+        conn.send(JSON.stringify({ type: "roles", guestSymbol: peerSymbol }));
+      } catch (_) {
+        setFriendStatus("Не удалось отправить роли гостю — попробуйте переподключиться.");
+        render();
+        return;
+      }
+      setFriendStatus("Соперник подключён. Вы играете за " + mySymbol + ". Первыми ходят крестики (X).");
       render();
     }
 
@@ -688,12 +708,13 @@
         return;
       }
       if (msg.type === "roles") {
+        clearFriendConnTimer();
         mySymbol = msg.guestSymbol;
         peerSymbol = mySymbol === HUMAN ? AI : HUMAN;
         resetBoardState();
         current = HUMAN;
         rolesAssigned = true;
-        setFriendStatus("Вы играете за " + mySymbol + ". Первыми ходят крестики.");
+        setFriendStatus("Вы играете за " + mySymbol + ". Первыми ходят крестики (X).");
         render();
         return;
       }
@@ -743,7 +764,7 @@
       setFriendStatus("Создание комнаты…");
       rolesAssigned = false;
       try {
-        peerObj = new Peer();
+        peerObj = new Peer(undefined, { debug: 0 });
       } catch (err) {
         setFriendStatus("Ошибка Peer: " + (err && err.message ? err.message : String(err)));
         return;
@@ -770,9 +791,21 @@
       return s.trim();
     }
 
+    function scheduleFriendConnDeadline() {
+      clearFriendConnTimer();
+      friendConnDeadlineTimer = setTimeout(() => {
+        friendConnDeadlineTimer = null;
+        if (rolesAssigned || gameMode !== "friend") return;
+        setFriendStatus(
+          "Подключение не завершилось. Проверьте: ① друг уже нажал «Создать игру» и видит код; ② вы ввели код без ошибок; ③ страница открыта через сайт или localhost, не как файл с диска; ④ есть интернет (иногда мешает школа/офис/VPN). Попробуйте снова.",
+        );
+        render();
+      }, 40000);
+    }
+
     function friendGuestConnect(hostIdRaw) {
       if (typeof Peer === "undefined") {
-        setFriendStatus("Не загрузилась сеть PeerJS.");
+        setFriendStatus("Не загрузилась сеть PeerJS (скрипт с интернета). Проверьте связь и обновите страницу.");
         return;
       }
       const hostId = extractJoinId(hostIdRaw);
@@ -782,34 +815,51 @@
       }
       teardownPeer();
       resetBoardState();
-      setFriendStatus("Подключение…");
+      setFriendStatus("Шаг 1: связь с сервером PeerJS…");
       rolesAssigned = false;
+      scheduleFriendConnDeadline();
       try {
-        peerObj = new Peer();
+        peerObj = new Peer(undefined, { debug: 0 });
       } catch (err) {
+        clearFriendConnTimer();
         setFriendStatus("Ошибка Peer: " + (err && err.message ? err.message : String(err)));
         return;
       }
       peerObj.on("error", (err) => {
-        setFriendStatus("Ошибка: " + (err.type || err.message || String(err)));
+        clearFriendConnTimer();
+        setFriendStatus("Ошибка PeerJS: " + (err.type || err.message || String(err)) + " Попробуйте другую сеть или обновите страницу.");
+        render();
+      });
+      peerObj.on("disconnected", () => {
+        setFriendStatus("Связь с сервером PeerJS прервалась. Обновите страницу и подключитесь снова.");
+        render();
       });
       peerObj.on("open", () => {
+        setFriendStatus("Шаг 2: звоним другу… У него должно быть уже нажато «Создать игру».");
+        render();
         let conn;
         try {
           conn = peerObj.connect(hostId, { reliable: true });
         } catch (err) {
-          setFriendStatus("Не удалось подключиться.");
+          clearFriendConnTimer();
+          setFriendStatus("Не удалось начать соединение с кодом. Проверьте код.");
+          render();
           return;
         }
         peerConn = conn;
         conn.on("data", handleFriendMessage);
+        conn.on("error", () => {
+          setFriendStatus("Ошибка канала связи. Пусть хост снова нажмёт «Создать игру», вы — «Подключиться».");
+          render();
+        });
         conn.on("close", () => {
           rolesAssigned = false;
+          clearFriendConnTimer();
           setFriendStatus("Соединение закрыто.");
           render();
         });
         conn.on("open", () => {
-          setFriendStatus("Ждём назначения ролей…");
+          setFriendStatus("Шаг 3: ждём, пока друг назначит крестики и нолики…");
           render();
         });
       });
