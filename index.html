@@ -485,7 +485,7 @@
   </div>
 
   <!-- Веселая музыка победы. Используем текущий mp3-файл из папки проекта. -->
-  <audio id="victorySfx" preload="auto">
+  <audio id="victorySfx" preload="auto" playsinline webkit-playsinline="true">
     <source src="fc31ca320b0edd3.mp3" type="audio/mpeg" />
     <source src="victory.mp3" type="audio/mpeg" />
     <source src="victory.wav" type="audio/wav" />
@@ -928,13 +928,48 @@
       return winnerOnBoard(cells);
     }
 
-    /** Звук победы: файл victory.mp3 или victory.wav в той же папке, что index.html. Вызывать из клика по клетке. */
+    let victoryAudioUnlocked = false;
+
+    /**
+     * На мобильных браузерах (особенно iOS) звук часто блокируется, пока не было
+     * пользовательского жеста. Разблокируем аудио на первом касании/клике/клавише.
+     */
+    function unlockVictoryAudio() {
+      if (victoryAudioUnlocked) return;
+      const el = document.getElementById("victorySfx");
+      if (!el) return;
+      try {
+        el.muted = true;
+        const p = el.play();
+        if (p && typeof p.then === "function") {
+          p.then(() => {
+            el.pause();
+            el.currentTime = 0;
+            el.muted = false;
+            victoryAudioUnlocked = true;
+          }).catch(() => {
+            el.muted = false;
+          });
+        } else {
+          el.pause();
+          el.currentTime = 0;
+          el.muted = false;
+          victoryAudioUnlocked = true;
+        }
+      } catch (_) {
+        el.muted = false;
+      }
+    }
+
+    /** Звук победы: файл victory.mp3/victory.wav или подключенный mp3 в той же папке, что index.html. */
     function playHumanVictorySound() {
       const el = document.getElementById("victorySfx");
       if (!el) return;
       try {
+        if (!victoryAudioUnlocked) unlockVictoryAudio();
         el.pause();
         el.currentTime = 0;
+        el.muted = false;
         void el.play().catch(() => {});
       } catch (_) {}
     }
@@ -1261,6 +1296,10 @@
     }
 
     render();
+
+    ["pointerdown", "touchstart", "click", "keydown"].forEach((evt) => {
+      document.addEventListener(evt, unlockVictoryAudio, { once: true, passive: true });
+    });
 
     if ("serviceWorker" in navigator) {
       const secure =
