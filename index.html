@@ -189,6 +189,42 @@
       box-shadow: inset 0 0 0 1.5px var(--accent);
     }
 
+    @keyframes neonPulseX {
+      from {
+        filter: brightness(1);
+      }
+      to {
+        filter: brightness(1.25);
+      }
+    }
+
+    @keyframes neonPulseO {
+      from {
+        filter: brightness(1);
+      }
+      to {
+        filter: brightness(1.22);
+      }
+    }
+
+    .cell.win .mark.x::before,
+    .cell.win .mark.x::after {
+      box-shadow:
+        0 0 6px rgba(255, 107, 107, 0.95),
+        0 0 14px rgba(255, 107, 107, 0.8),
+        0 0 24px rgba(255, 107, 107, 0.55);
+      animation: neonPulseX 0.9s ease-in-out infinite alternate;
+    }
+
+    .cell.win .mark.o {
+      box-shadow:
+        0 0 7px rgba(105, 219, 124, 0.95),
+        0 0 16px rgba(105, 219, 124, 0.8),
+        0 0 28px rgba(105, 219, 124, 0.55),
+        inset 0 0 10px rgba(255, 255, 255, 0.5);
+      animation: neonPulseO 0.9s ease-in-out infinite alternate;
+    }
+
     .difficulty {
       margin-top: 0.6rem;
       display: flex;
