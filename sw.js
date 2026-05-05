@@ -1,10 +1,11 @@
-const CACHE = "ttt-v7";
+const CACHE = "ttt-v8";
 const PRECACHE = [
   "./index.html",
   "./manifest.json",
   "./icon.svg",
   "./icon-192.png",
   "./icon-512.png",
+  "./fc31ca320b0edd3.mp3",
 ];
 
 self.addEventListener("install", (event) => {

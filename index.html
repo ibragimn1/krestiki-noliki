@@ -407,7 +407,8 @@
       gap: 1rem;
       align-items: center;
       justify-content: center;
-      background: rgba(7, 10, 16, 0.72);
+      background: rgba(7, 10, 16, 0.42);
+      backdrop-filter: blur(1.5px);
       z-index: 999;
       opacity: 0;
       pointer-events: none;
@@ -594,6 +595,8 @@
     let winLine = null;
     let aiThinking = false;
     let aiTimer = null;
+    let resultOverlayTimer = null;
+    let resultOverlayVisible = false;
 
     const DIFF_STORAGE = "ttt-difficulty";
     /** Чем выше уровень, тем сильнее ИИ: радиус клеток, шум, «размытие» оценки, вилка, просмотр */
@@ -703,11 +706,26 @@
     }
 
     function resetBoardState() {
+      if (resultOverlayTimer) {
+        clearTimeout(resultOverlayTimer);
+        resultOverlayTimer = null;
+      }
       cells = Array(N).fill("");
       gameOver = false;
       winLine = null;
       current = HUMAN;
       aiThinking = false;
+      resultOverlayVisible = false;
+    }
+
+    function scheduleResultOverlay(delayMs) {
+      if (resultOverlayVisible) return;
+      if (resultOverlayTimer) return;
+      resultOverlayTimer = setTimeout(() => {
+        resultOverlayTimer = null;
+        resultOverlayVisible = true;
+        resultOverlayEl.classList.add("show");
+      }, delayMs);
     }
 
     function sendPeer(msg) {
@@ -1245,8 +1263,19 @@
           resultTextEl.textContent = "НИЧЬЯ";
           resultTextEl.className = "result-text draw";
         }
-        resultOverlayEl.classList.add("show");
+        if (w) {
+          // Даем короткий момент, чтобы был виден неоновый эффект победной линии.
+          scheduleResultOverlay(650);
+        } else {
+          resultOverlayVisible = true;
+          resultOverlayEl.classList.add("show");
+        }
       } else if (!isCpuMode()) {
+        if (resultOverlayTimer) {
+          clearTimeout(resultOverlayTimer);
+          resultOverlayTimer = null;
+        }
+        resultOverlayVisible = false;
         resultOverlayEl.classList.remove("show");
         if (!peerConn || !peerConn.open) {
           statusEl.innerHTML = "<strong>Нет соединения — создайте игру или подключитесь</strong>";
@@ -1258,9 +1287,19 @@
           statusEl.innerHTML = `Ваш ход (<strong>${mySymbol}</strong>)`;
         }
       } else if (aiThinking) {
+        if (resultOverlayTimer) {
+          clearTimeout(resultOverlayTimer);
+          resultOverlayTimer = null;
+        }
+        resultOverlayVisible = false;
         resultOverlayEl.classList.remove("show");
         statusEl.innerHTML = "Ход компьютера…";
       } else {
+        if (resultOverlayTimer) {
+          clearTimeout(resultOverlayTimer);
+          resultOverlayTimer = null;
+        }
+        resultOverlayVisible = false;
         resultOverlayEl.classList.remove("show");
         statusEl.innerHTML = `Ваш ход (<strong>${HUMAN}</strong>)`;
       }
